@@ -1,0 +1,191 @@
+
+
+services:
+
+  mongodb-event:
+    image: mongo:latest
+    container_name: mongodb-event
+    ports:
+      - 27014:27017
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password
+      - MONGO_INITDB_DATABASE=event-service
+    volumes:
+      - ./mongo/data/event:/data/db
+      - ./mongo/init/event/mongo.init.js:/docker-entrypoint-initdb.d/mongo.init.js:ro
+    networks:
+      - spring
+
+  event-service:
+    image: event-service
+    build:
+      context: ./event-service
+      dockerfile: ./Dockerfile
+    container_name: event-service
+    ports:
+      - 8089:8089
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    depends_on:
+      - mongodb-event
+    networks:
+      - spring
+
+  mongo-express-event:
+    image: mongo-express
+    container_name: mongo-express-event
+    ports:
+      - 8086:8081
+    environment:
+      - ME_CONFIG_MONGODB_ADMINUSERNAME=admin
+      - ME_CONFIG_MONGODB_ADMINPASSWORD=password
+      - ME_CONFIG_MONGODB_SERVER=mongodb-event
+    depends_on:
+      - mongodb-event
+    networks:
+      - spring
+
+  postgres-users:
+    image: postgres:latest
+    container_name: postgres-users
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=user-service
+      - POSTGRES_HOST_AUTH_METHOD=trust  # Allows all hosts for testing
+    ports:
+      - 5434:5432
+    volumes:
+      - ./postgres/data/users:/var/lib/postgresql/data
+      - ./postgres/init/users/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - spring
+
+  user-service:
+    image: user-service
+    build:
+      context: ./user-service
+      dockerfile: ./Dockerfile
+    container_name: user-service
+    ports:
+      - 8087:8087
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    depends_on:
+      - postgres-users
+    networks:
+      - spring
+
+  pgadmin-users:
+    image: dpage/pgadmin4
+    container_name: pgadmin-users
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=user@domain.ca
+      - PGADMIN_DEFAULT_PASSWORD=password
+    ports:
+      - 5051:80
+    depends_on:
+      - postgres-users
+    networks:
+      - spring
+
+
+
+
+
+  postgres:
+    image: postgres:latest
+    container_name: postgres-room
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=room-service
+    ports:
+      - 5432:5432
+    volumes:
+      - ./postgres/data/room:/var/lib/postgresql/data
+      - ./postgres/init/room/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - spring
+
+  room-service:
+    image: room-service
+    build:
+      context: ./room-service
+      dockerfile: ./Dockerfile
+    container_name: room-service
+    ports:
+      - 8083:8083
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    depends_on:
+      - postgres
+    networks:
+      - spring
+
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin-room
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=user@domain.ca
+      - PGADMIN_DEFAULT_PASSWORD=password
+    ports:
+      - 5050:80
+    depends_on:
+      - postgres
+
+  mongodb-booking:
+    image: mongo:latest
+    container_name: mongodb-booking
+    ports:
+      - 27019:27017
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password
+      - MONGO_INITDB_DATABASE=booking-service
+    volumes:
+      - ./mongo/data/booking:/data/db
+      - ./mongo/init/booking/docker-entrypoint-initdb.d/mongo.init.js:/docker-entrypoint-initdb.d/mongo.init.js:ro
+    networks:
+      - spring
+
+  mongo-express-booking:
+    image: mongo-express
+    container_name: mongo-express-booking
+    ports:
+      - 8082:8081
+    environment:
+      - ME_CONFIG_MONGODB_ADMINUSERNAME=admin
+      - ME_CONFIG_MONGODB_ADMINPASSWORD=password
+      - ME_CONFIG_MONGODB_SERVER=mongodb-booking
+    depends_on:
+      - mongodb-booking
+    networks:
+      - spring
+
+  booking-service:
+    image: booking-service
+    build:
+      context: ./booking-service
+      dockerfile: ./Dockerfile
+    container_name: booking-service
+    ports:
+      - 8085:8085
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    depends_on:
+      - mongodb-booking
+    networks:
+      - spring
+
+volumes:
+  postgres:
+    driver: local
+  mongodb:
+    driver: local
+
+networks:
+  spring:
+    driver: bridge

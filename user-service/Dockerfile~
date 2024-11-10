@@ -1,0 +1,44 @@
+FROM ubuntu:latest
+LABEL authors="jeelp"
+
+ENTRYPOINT ["top", "-b"]
+
+#----------------------------
+# Build Stage
+#----------------------------
+
+FROM gradle:8-jdk21-alpine AS build
+
+# Set the working directory
+WORKDIR /home/gradle/src
+
+# Copy Gradle and project files to the container
+COPY . /home/gradle/src
+
+# Run Gradle build
+RUN gradle build -x test
+
+#----------------------------
+# Package Stage
+#----------------------------
+FROM openjdk:21-jdk
+
+# Create a directory for the app
+RUN mkdir /app
+
+# Copy the jar to the production image from the builder stage
+COPY --from=build /home/gradle/src/build/libs/*.jar /app/user-service.jar
+
+ENV     POSTGRES_DB=user-service \
+        POSTGRES_USER=admin \
+        POSTGRES_PASSWORD=password
+
+
+
+# Expose the port
+EXPOSE 8087
+
+# Start the application
+CMD ["java", "-jar", "user-service.jar"]
+
+
